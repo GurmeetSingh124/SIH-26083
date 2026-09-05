@@ -1,121 +1,144 @@
-# HeatSafe AI — Heatwave & Thermal Stress Prediction (SIH26083)
+# HeatSafe AI
 
-Full-stack upgrade: **React frontend** + **FastAPI backend** + your **ML model
-(heat_risk_model.pkl)** connected + **live weather-based heat-zone map** +
-**MongoDB user login**, allowing each user to view heat stress for their area
-based on their location.
+HeatSafe AI is a full-stack application for monitoring heatwave and thermal
+stress risk. It combines live weather data, an ML-based risk engine, maps,
+forecasts, safety recommendations, user accounts, and an optional AI assistant.
 
-```
+The project has two parts:
+
+```text
 heatsafe-ai/
-├── backend/     → FastAPI (ML model, live weather, MongoDB auth)
-└── frontend/    → React + Vite (dashboard, map, chat assistant)
+├── backend/   FastAPI API, weather services, risk prediction, authentication
+└── frontend/  React + Vite dashboard
 ```
 
----
+## Requirements
 
-## 1. Where to configure API keys (MOST IMPORTANT)
+- Python 3.10 or newer
+- Node.js 18 or newer and npm
+- MongoDB, either local or MongoDB Atlas
+- Internet access for live weather data
 
-### Weather API — no key required ✅
-This project uses **Open-Meteo**, which is completely FREE for non-commercial
-use. It provides live temperature, humidity, wind speed, and **solar radiation**
-without an API key (solar radiation is not available in the free OpenWeatherMap
-tier). The project therefore works with live data immediately, with no key
-required.
+## Quick Start on Windows
 
-If you later add a paid service such as OpenWeatherMap for push alerts, SMS, or
-other features, add its key here:
-`backend/.env` → `WEATHER_API_KEY=` (it can remain empty for now)
+Open two terminals in the `heatsafe-ai` folder.
 
-### MongoDB — in `backend/.env`
-```
-MONGODB_URL=mongodb://localhost:27017          # local MongoDB
-# or the MongoDB Atlas (free cloud database) connection string:
-MONGODB_URL=mongodb+srv://user:pass@cluster.mongodb.net
-MONGODB_DB_NAME=heatsafe_ai
-```
-Create a free MongoDB Atlas account at: https://www.mongodb.com/cloud/atlas/register
-Then select "Connect" → "Drivers", copy the connection string, and paste it here.
+### 1. Configure the backend
 
-### JWT secret — in `backend/.env`
-```
-JWT_SECRET_KEY=add_a_long_random_string_here
-```
+In the first terminal:
 
-**That is all.** Copy `backend/.env.example` to `.env`, fill in the two values
-above (MongoDB URL and JWT secret), and the project is ready.
-
----
-
-## 2. Running the Backend
-
-```bash
+```powershell
 cd backend
 python -m venv venv
-venv\Scripts\Activate.ps1        # Windows
-# source venv/bin/activate       # Mac/Linux
-
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env           # Windows: copy | Mac/Linux: cp
-# then open .env and fill in MONGODB_URL and JWT_SECRET_KEY
+copy .env.example .env
+```
 
+Open `backend/.env` and check these settings:
+
+```env
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DB_NAME=heatsafe_ai
+JWT_SECRET_KEY=replace-this-with-a-long-random-secret
+```
+
+Use a MongoDB Atlas connection string instead of the local URL if MongoDB is
+not installed on your computer. `GEMINI_API_KEY` is optional; add it only if
+you want to use the AI assistant. Open-Meteo weather data does not require an
+API key.
+
+### 2. Start the backend
+
+Keep the virtual environment active and run:
+
+```powershell
 uvicorn main:app --reload
 ```
 
-Backend runs at: `http://127.0.0.1:8000`
-Swagger docs (to test all APIs): `http://127.0.0.1:8000/docs`
+The API is available at `http://127.0.0.1:8000`.
+Open `http://127.0.0.1:8000/docs` to view and test the API documentation.
 
-**Do you not have local MongoDB?** The easiest option is to use MongoDB Atlas
-(free; see the step above), or run local MongoDB with
-`docker run -d -p 27017:27017 mongo`.
+### 3. Install and start the frontend
 
----
+In the second terminal:
 
-## 3. Running the Frontend
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open the URL printed by Vite, normally `http://localhost:5173`.
+
+The frontend already uses `http://127.0.0.1:8000/api` as its backend URL. To
+use a different backend, create `frontend/.env` with:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
+
+## macOS or Linux
+
+Use the same steps, replacing the Windows virtual-environment commands with:
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn main:app --reload
+```
+
+In another terminal, start the frontend with:
 
 ```bash
 cd frontend
 npm install
-copy .env.example .env           # Windows | cp .env.example .env (Mac/Linux)
 npm run dev
 ```
 
-Open in your browser: `http://localhost:5173`
+## What the dashboard provides
 
-For a production build: `npm run build` (the result can be deployed directly to
-Vercel or Netlify).
+- Live weather from Open-Meteo
+- Heat-risk predictions with Green, Yellow, Orange, and Red levels
+- Risk forecasts and heat-zone map data
+- Location search and browser geolocation
+- User registration, login, and saved locations
+- Safety recommendations and alerts
+- Optional Gemini-powered assistant
 
----
+## Common problems
 
-## 4. Features
+### MongoDB connection error
 
-| Feature | Details |
-|---|---|
-| **Live weather** | Open-Meteo API; no key required |
-| **ML model prediction** | Your `heat_risk_model.pkl` is connected directly (`backend/app/ml/model.py`). The RandomForest model predicts Green/Yellow/Orange/Red from temperature, humidity, wind, and solar radiation. |
-| **Heat-zone map** | Creates a 5×5 grid around the location, gets live weather and an ML prediction for each point, and displays colored circles on the map. |
-| **24/48/72h prediction chart** | Uses the live hourly forecast and ML model. |
-| **User login (MongoDB)** | Register/Login, JWT token, password hashed with bcrypt. |
-| **My Area heat-risk** | Save your location after logging in to view live heat stress for your area on the dashboard (`/api/users/me/heat-risk`). |
-| **AI Assistant chat** | Answers your questions using live risk data. |
+Start local MongoDB, or replace `MONGODB_URL` in `backend/.env` with a MongoDB
+Atlas connection string. Make sure the Atlas network access settings allow your
+current IP address.
 
----
+### Frontend cannot reach the backend
 
-## 5. Model details (confirmed from the notebook)
+Confirm that the backend terminal is still running and that the frontend is
+using `http://127.0.0.1:8000/api` in `VITE_API_BASE_URL`.
 
-- Model: `RandomForestClassifier` (scikit-learn 1.7.2, 150 trees)
-- Input features (in this order): `temperature_c, humidity_pct, wind_speed_kmh, solar_radiation_w_m2`
-- Output: `Green` (Low) / `Yellow` (Moderate) / `Orange` (High) / `Red` (Extreme)
-- The backend combines this with a heat-index formula to produce an accurate,
-  explainable result (score, confidence percentage, reasons, and recommended
-  action). Test these through `/api/risk/predict` or
-  `/api/risk/predict-manual` in the Swagger docs.
+### PowerShell blocks activation
 
----
+Run PowerShell as your normal user and execute this once, then retry activation:
 
-## 6. Next step (deployment)
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
 
-- **Frontend**: Deploy the `dist/` folder generated by `npm run build` to Vercel or Netlify.
-- **Backend**: Deploy to Render or Railway and set the `.env` variables in its
-  dashboard (`MONGODB_URL`, `JWT_SECRET_KEY`).
-- After deployment, update `VITE_API_BASE_URL` in `frontend/.env` to your live
-  backend URL.
+## Production build
+
+Create the frontend production files with:
+
+```bash
+cd frontend
+npm run build
+```
+
+The output is written to `frontend/dist`. For deployment, configure the
+backend environment variables on the server and set `VITE_API_BASE_URL` to the
+deployed backend API URL before building the frontend.
