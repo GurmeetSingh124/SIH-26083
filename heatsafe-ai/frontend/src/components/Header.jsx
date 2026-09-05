@@ -58,7 +58,7 @@ export default function Header({ location, weather, risk, onLocationChange, onOp
 
   const situation = weather && risk
     ? `Thermal risk: ${risk.risk_status} · Temperature: ${weather.temperature_c}°C`
-    : "Thermal risk aur temperature load ho raha hai...";
+    : "Thermal risk and temperature are loading...";
 
   return (
     <header className="site-header">
@@ -99,7 +99,7 @@ export default function Header({ location, weather, risk, onLocationChange, onOp
                       type="search"
                       value={query}
                       onChange={handleSearch}
-                      placeholder="Location search karein..."
+                      placeholder="Search for a location..."
                       style={{
                         width: "100%",
                         background: "var(--surface-2)",

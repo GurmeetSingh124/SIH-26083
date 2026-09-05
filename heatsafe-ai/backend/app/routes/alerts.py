@@ -13,10 +13,10 @@ ALERT_TITLES = {
 }
 
 ALERT_TEXTS = {
-    "Green": "Mausam abhi normal range mein hai, koi khaas savdhani ki zarurat nahi.",
-    "Yellow": "Halki garmi ka asar ho sakta hai, paani peete rahein aur dhoop kam lein.",
-    "Orange": "Dopahar 12 PM se 4 PM ke beech thermal stress zyada rehne ki sambhavna hai.",
-    "Red": "Extreme thermal stress conditions expect ki ja rahi hain - outdoor kaam avoid karein.",
+    "Green": "Weather is currently within the normal range; no special precautions are needed.",
+    "Yellow": "Mild heat effects are possible. Keep drinking water and limit sun exposure.",
+    "Orange": "Higher thermal stress is likely between 12 PM and 4 PM.",
+    "Red": "Extreme thermal stress conditions are expected. Avoid outdoor work.",
 }
 
 
@@ -26,7 +26,7 @@ async def current_alert(
     lon: float = Query(default=None),
     label: str = Query(default=None),
 ):
-    """Live weather + ML model ke basis par ek ready-to-show alert banata hai."""
+    """Build a ready-to-display alert from live weather and the ML model."""
     lat = lat if lat is not None else settings.DEFAULT_LAT
     lon = lon if lon is not None else settings.DEFAULT_LON
 

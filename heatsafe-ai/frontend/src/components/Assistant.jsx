@@ -10,42 +10,42 @@ const QUICK_QUESTIONS = [
 ];
 
 function buildReply(question, risk, weather) {
-  if (!risk) return "Data abhi load ho raha hai, thodi der me phir se poochein.";
+  if (!risk) return "Data is still loading. Please ask again in a moment.";
   const q = question.toLowerCase();
   const level = risk.risk_status;
 
   if (q.includes("safe") || q.includes("outside")) {
     if (level === "Extreme" || level === "High") {
-      return `Abhi ${level} risk hai (score ${risk.risk_score}/100). Bahar jaana avoid karein, especially 12 PM se 4 PM ke beech.`;
+      return `The current risk is ${level} (score ${risk.risk_score}/100). Avoid going outside, especially between 12 PM and 4 PM.`;
     }
-    return `Risk ${level} hai, savdhani ke saath bahar ja sakte hain - paani saath rakhein.`;
+    return `The risk is ${level}. You can go outside with caution, but carry water with you.`;
   }
 
   if (q.includes("today") || q.includes("risk")) {
-    return `Aaj ka heat risk ${level} hai (score: ${risk.risk_score}/100, temperature: ${weather?.temperature_c ?? "—"}°C, heatwave probability: ${risk.heatwave_probability}%).`;
+    return `Today's heat risk is ${level} (score: ${risk.risk_score}/100, temperature: ${weather?.temperature_c ?? "—"}°C, heatwave probability: ${risk.heatwave_probability}%).`;
   }
 
   if (q.includes("avoid") || q.includes("stress")) {
-    return `${risk.recommended_action} Iske alawa: hydrated rahein, halke rang ke kapde pehnein, aur direct dhoop se bachein.`;
+    return `${risk.recommended_action} Also, stay hydrated, wear light-coloured clothing, and avoid direct sunlight.`;
   }
 
   if (q.includes("exercise")) {
     if (level === "Extreme" || level === "High") {
-      return "Abhi outdoor exercise avoid karein - subah jaldi ya shaam der se try karein jab temperature kam ho.";
+      return "Avoid outdoor exercise for now. Try early morning or late evening when temperatures are lower.";
     }
-    return "Haan, halka exercise kar sakte hain, bas hydration ka dhyan rakhein.";
+    return "Yes, light exercise should be fine, but remember to stay hydrated.";
   }
 
   if (q.includes("why") || q.includes("high")) {
     return risk.top_reasons.join(". ") + ".";
   }
 
-  return `Risk level abhi ${level} hai (${risk.risk_score}/100). Kuch aur poochna ho to batayein!`;
+  return `The current risk level is ${level} (${risk.risk_score}/100). Ask me anything else!`;
 }
 
 export default function Assistant({ risk, weather, innerRef }) {
   const [messages, setMessages] = useState([
-    { who: "bot", text: "Namaste! Mujhse aaj ke heat conditions ke baare me kuch bhi poochein." },
+    { who: "bot", text: "Hello! Ask me anything about today's heat conditions." },
   ]);
   const [input, setInput] = useState("");
   const [asking, setAsking] = useState(false);

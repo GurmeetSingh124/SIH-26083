@@ -1,5 +1,4 @@
-// Backend risk_status ("Low" | "Moderate" | "High" | "Extreme") ko
-// UI colors/classes se map karta hai.
+// Maps backend risk_status values to UI colors and classes.
 export const RISK_META = {
   Low: { label: "Low", cssVar: "--risk-low", className: "risk-low" },
   Moderate: { label: "Moderate", cssVar: "--risk-moderate", className: "risk-moderate" },
@@ -7,8 +6,7 @@ export const RISK_META = {
   Extreme: { label: "Extreme", cssVar: "--risk-extreme", className: "risk-extreme" },
 };
 
-// risk_level (Green/Yellow/Orange/Red - model ka raw output) ko status se map karna,
-// map ke colored dots ke liye use hota hai.
+// Maps the model's raw risk_level output to a status for the map's colored dots.
 export const RISK_LEVEL_TO_STATUS = {
   Green: "Low",
   Yellow: "Moderate",

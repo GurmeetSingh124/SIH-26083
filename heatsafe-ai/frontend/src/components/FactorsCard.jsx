@@ -37,9 +37,9 @@ export default function FactorsCard({ risk, loading }) {
             <button className="modal-close" onClick={() => setShowExplain(false)}>&times;</button>
             <h3>Why is this prediction {risk.risk_status.toLowerCase()}?</h3>
             <p>
-              Hamara RandomForest ML model tumhari live temperature, humidity, wind speed aur solar
-              radiation ko dekh kar <strong>{risk.model_confidence}%</strong> confidence ke saath yeh
-              prediction deta hai.
+              Our RandomForest ML model uses live temperature, humidity, wind speed, and solar
+              radiation data to make this prediction with <strong>{risk.model_confidence}%</strong>
+              confidence.
             </p>
             <ul className="modal-list">
               {risk.top_reasons.map((r, i) => <li key={i}>{r}</li>)}
