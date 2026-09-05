@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-pydantic
-python-dotenv
-sqlalchemy
-email-validator
-joblib
-pandas
-scikit-learn
