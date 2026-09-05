@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HeatSafe AI — Heatwave &amp; Thermal Stress Prediction</title>
-  <meta name="description" content="AI-powered heatwave and thermal stress early-warning dashboard for Nabha, Punjab.">
+  <meta name="description" content="AI-powered heatwave and thermal stress early-warning dashboard based on your exact location.">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
@@ -41,7 +41,7 @@
       <div class="header-actions">
         <button class="location-pill" id="locationBtn" aria-haspopup="listbox" aria-label="Change location">
           <i class="fa-solid fa-location-dot"></i>
-          <span id="currentLocationLabel">Nabha, Punjab</span>
+          <span id="currentLocationLabel">Detecting your location...</span>
           <i class="fa-solid fa-chevron-down chev"></i>
         </button>
         <ul class="location-dropdown" id="locationDropdown" role="listbox" hidden></ul>
@@ -88,7 +88,7 @@
           <p class="hero-sub">AI-powered heatwave and thermal-stress monitoring for smarter, safer communities across
             Punjab.</p>
           <div class="hero-meta">
-            <div><i class="fa-solid fa-location-dot"></i> Nabha, Punjab, India</div>
+            <div><i class="fa-solid fa-location-dot"></i> Your exact area</div>
             <div><i class="fa-regular fa-calendar"></i> <span id="heroDate">—</span></div>
             <div><i class="fa-regular fa-clock"></i> Last updated <span id="heroUpdated">—</span></div>
           </div>

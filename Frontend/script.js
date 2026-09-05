@@ -6,18 +6,8 @@
    ========================================================================== */
 
 /* ---------- Configuration ---------- */
-const API_BASE = "http://localhost:8000/api"; // FastAPI backend, see /backend
-const USE_LIVE_API = false; // flip to true once the backend + weather key are wired up
-
-/* ---------- Demo dataset (clearly labeled, matches backend /api/risk shape) ---------- */
-const DEMO_LOCATIONS = {
-  "Nabha":      { lat: 30.3745, lng: 76.1526, temperature: 43.5, feelsLike: 54.2, humidity: 68, wind: 7,  solar: 850, dew: 32, rain: 0,  heatIndex: 54.2, riskScore: 87, heatwaveProb: 0.87, risk: "extreme" },
-  "Patiala":    { lat: 30.3398, lng: 76.3869, temperature: 42.1, feelsLike: 50.8, humidity: 61, wind: 9,  solar: 810, dew: 30, rain: 0,  heatIndex: 50.8, riskScore: 78, heatwaveProb: 0.74, risk: "high" },
-  "Ludhiana":   { lat: 30.9010, lng: 75.8573, temperature: 40.8, feelsLike: 46.9, humidity: 55, wind: 11, solar: 780, dew: 27, rain: 0,  heatIndex: 46.9, riskScore: 62, heatwaveProb: 0.55, risk: "high" },
-  "Amritsar":   { lat: 31.6340, lng: 74.8723, temperature: 38.6, feelsLike: 41.2, humidity: 47, wind: 13, solar: 720, dew: 22, rain: 0,  heatIndex: 41.2, riskScore: 44, heatwaveProb: 0.31, risk: "moderate" },
-  "Chandigarh": { lat: 30.7333, lng: 76.7794, temperature: 36.9, feelsLike: 38.4, humidity: 42, wind: 15, solar: 690, dew: 19, rain: 2,  heatIndex: 38.4, riskScore: 29, heatwaveProb: 0.18, risk: "low" },
-  "Delhi":      { lat: 28.6139, lng: 77.2090, temperature: 41.4, feelsLike: 47.7, humidity: 50, wind: 8,  solar: 800, dew: 25, rain: 0,  heatIndex: 47.7, riskScore: 67, heatwaveProb: 0.58, risk: "high" },
-};
+const API_BASE = "http://127.0.0.1:8000/api"; // FastAPI backend, see /backend
+const USE_LIVE_API = true;
 
 const RISK_META = {
   low:       { label: "Low",      color: "var(--risk-low)",      class: "risk-low" },
@@ -68,7 +58,7 @@ const SAFETY_RECS = {
 
 /* ---------- State ---------- */
 let state = {
-  location: "Nabha",
+  location: "Your location",
   profile: "student",
   rangeHours: 24,
 };
@@ -78,6 +68,10 @@ let mapMarkers = {};
 
 let userLocationMarker = null;
 let userLocationCircle = null;
+let userCoordinates = null;
+let lastExtremeNotification = null;
+let riskCloudLayers = [];
+let riskCloudGroup = null;
 
 /* ---------- Utilities ---------- */
 const $ = (sel) => document.querySelector(sel);
@@ -97,10 +91,15 @@ function seededOffset(seed, spread){
 }
 
 /* ---------- Data access (live API with graceful demo fallback) ---------- */
-async function fetchRisk(location){
+async function fetchRisk(location, coordinates = null){
   if (USE_LIVE_API){
     try{
-      const res = await fetch(`${API_BASE}/risk?location=${encodeURIComponent(location)}`);
+      const params = new URLSearchParams({ location });
+      if (coordinates){
+        params.set("lat", coordinates.lat);
+        params.set("lon", coordinates.lon);
+      }
+      const res = await fetch(`${API_BASE}/risk?${params}`);
       if (!res.ok) throw new Error("bad response");
       const data = await res.json();
       setMode(false);
@@ -110,18 +109,14 @@ async function fetchRisk(location){
       setMode(true);
     }
   }
-  const demo = DEMO_LOCATIONS[location];
-  return normalizeRisk({
-    location, temperature: demo.temperature, feels_like: demo.feelsLike, humidity: demo.humidity,
-    wind_speed: demo.wind, solar_radiation: demo.solar, dew_point: demo.dew, rainfall: demo.rain,
-    heat_index: demo.heatIndex, thermal_risk: RISK_META[demo.risk].label, risk_score: demo.riskScore,
-    heatwave_probability: demo.heatwaveProb,
-  });
+  throw new Error("Live weather service is unavailable");
 }
 
 function normalizeRisk(d){
   return {
     location: d.location,
+    lat: d.lat,
+    lon: d.lon,
     temperature: d.temperature,
     feelsLike: d.feels_like ?? d.feelsLike,
     humidity: d.humidity,
@@ -187,6 +182,20 @@ function renderRisk(data){
 
   renderFactors(data.risk, data.riskScore);
   renderAlert(data, meta);
+  notifyExtremeRisk(data);
+}
+
+function notifyExtremeRisk(data){
+  if (data.risk !== "extreme" || lastExtremeNotification === data.location) return;
+  lastExtremeNotification = data.location;
+  const status = $("#locationStatus");
+  if (status) status.textContent = `Extreme risk detected in ${data.location}. Stay indoors and follow safety instructions.`;
+  if ("Notification" in window && Notification.permission === "granted"){
+    new Notification("HeatSafe AI: Extreme heat risk", {
+      body: `${data.location} has an extreme thermal stress risk (${Math.round(data.riskScore)}/100). Avoid outdoor exposure.`,
+      tag: `heatsafe-${data.location}`,
+    });
+  }
 }
 
 function animateNumber(el, target){
@@ -323,47 +332,147 @@ function renderPredictionChart(data){
 
 /* ---------- Heat map ---------- */
 function initMap(){
-  map = L.map("heatMap", { scrollWheelZoom: false }).setView([30.3745, 76.1526], 7);
+  map = L.map("heatMap", { scrollWheelZoom: false }).setView([20.5937, 78.9629], 5);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors",
-    maxZoom: 12,
+    maxZoom: 19,
   }).addTo(map);
-  renderMapMarkers();
+  riskCloudGroup = L.layerGroup().addTo(map);
+  requestAnimationFrame(() => map.invalidateSize(true));
 }
 
 function riskColorVar(risk){
   return { low:"#4CAF6D", moderate:"#E5B93F", high:"#E88A2F", extreme:"#E14A34" }[risk] || "#E5B93F";
 }
 
-function renderMapMarkers(){
-  Object.entries(DEMO_LOCATIONS).forEach(([name, d]) => {
-    const risk = d.risk;
-    const color = riskColorVar(risk);
-    const marker = L.circleMarker([d.lat, d.lng], {
-      radius: name === state.location ? 12 : 9,
-      color: "#0E1417",
-      weight: 2,
+function showUserLocation(data){
+  if (!map || !data.lat || !data.lon) return;
+  map.invalidateSize(true);
+  if (userLocationMarker) map.removeLayer(userLocationMarker);
+  if (userLocationCircle) map.removeLayer(userLocationCircle);
+  userLocationMarker = L.marker([data.lat, data.lon]).addTo(map).bindPopup(`<strong>${data.location}</strong><br>${RISK_META[data.risk].label} risk: ${Math.round(data.riskScore)}/100<br>GPS: ${data.lat.toFixed(5)}, ${data.lon.toFixed(5)}`).openPopup();
+  userLocationCircle = L.circle([data.lat, data.lon], { radius: 5000, color: riskColorVar(data.risk), weight: 3, fillColor: riskColorVar(data.risk), fillOpacity: 0.28 }).addTo(map);
+  map.setView([data.lat, data.lon], 13, { animate: true });
+}
+
+function showRawGpsPosition(latitude, longitude, accuracy){
+  if (!map) return;
+  if (userLocationMarker) map.removeLayer(userLocationMarker);
+  if (userLocationCircle) map.removeLayer(userLocationCircle);
+  userLocationMarker = L.circleMarker([latitude, longitude], {
+    radius: 9,
+    color: "#087f8c",
+    weight: 3,
+    fillColor: "#2fc4c0",
+    fillOpacity: 1,
+  }).addTo(map).bindPopup(`GPS position<br>Accuracy: about ${Math.round(accuracy || 0)} m`).openPopup();
+  userLocationCircle = L.circle([latitude, longitude], {
+    radius: Math.max(accuracy || 50, 50),
+    color: "#087f8c",
+    fillColor: "#2fc4c0",
+    fillOpacity: 0.12,
+  }).addTo(map);
+  map.setView([latitude, longitude], 15, { animate: true });
+}
+
+function clearRiskCloud(){
+  if (riskCloudGroup) riskCloudGroup.clearLayers();
+  else riskCloudLayers.forEach(layer => map.removeLayer(layer));
+  riskCloudLayers = [];
+}
+
+function addRiskCloudPoint(latitude, longitude, data){
+  const color = riskColorVar(data.risk);
+  const popup = `<strong>${data.location}</strong><br>${RISK_META[data.risk].label} risk: ${Math.round(data.riskScore)}/100<br>Temperature: ${data.temperature.toFixed(1)}°C<br>Humidity: ${data.humidity}%`;
+  [18000, 11000, 5500].forEach((radius, index) => {
+    const layer = L.circle([latitude, longitude], {
+      radius,
+      color,
+      weight: index === 2 ? 1.5 : 0,
       fillColor: color,
-      fillOpacity: 0.9,
-    }).addTo(map);
-
-    marker.bindPopup(`
-      <div class="map-popup">
-        <h4>${name}</h4>
-        <table>
-          <tr><td>Temperature</td><td>${d.temperature}°C</td></tr>
-          <tr><td>Humidity</td><td>${d.humidity}%</td></tr>
-          <tr><td>Heat index</td><td>${d.heatIndex}°C</td></tr>
-          <tr><td>Risk score</td><td>${d.riskScore}/100</td></tr>
-          <tr><td>Risk level</td><td>${RISK_META[risk].label}</td></tr>
-        </table>
-      </div>`);
-
-    marker.on("click", () => {
-      if (DEMO_LOCATIONS[name]) selectLocation(name);
-    });
-    mapMarkers[name] = marker;
+      fillOpacity: [0.08, 0.14, 0.28][index],
+      interactive: index === 2,
+    }).addTo(riskCloudGroup || map);
+    if (index === 2) layer.bindPopup(popup);
+    riskCloudLayers.push(layer);
   });
+}
+
+async function renderRiskCloud(data){
+  if (!map || !Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
+  clearRiskCloud();
+  addRiskCloudPoint(data.lat, data.lon, data);
+  const offsets = [
+    [0, 0], [0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12],
+    [0.085, 0.085], [0.085, -0.085], [-0.085, 0.085], [-0.085, -0.085],
+  ];
+  const points = await Promise.all(offsets.map(async ([latOffset, lonOffset]) => {
+    const latitude = data.lat + latOffset;
+    const longitude = data.lon + lonOffset;
+    try {
+      return { latitude, longitude, data: await fetchRisk("Risk zone", { lat: latitude, lon: longitude }) };
+    } catch (error) {
+      return { latitude, longitude, data };
+    }
+  }));
+  points.slice(1).forEach(point => addRiskCloudPoint(point.latitude, point.longitude, point.data));
+}
+
+async function locateUser(){
+  if (!("geolocation" in navigator)){
+    $("#locationStatus").textContent = "Geolocation is not supported by this browser.";
+    return;
+  }
+  if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
+  $("#locationStatus").textContent = "Locating your area and loading live weather...";
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    userCoordinates = { lat: position.coords.latitude, lon: position.coords.longitude };
+    state.location = "Your location";
+    $("#currentLocationLabel").textContent = "Your location";
+    try{
+      showRawGpsPosition(userCoordinates.lat, userCoordinates.lon, position.coords.accuracy);
+      const data = await fetchRisk("Your location", userCoordinates);
+      currentRiskData = data;
+      renderRisk(data);
+      renderPredictionChart(data);
+      showUserLocation(data);
+      await renderRiskCloud(data);
+      const accuracy = Math.round(position.coords.accuracy || 0);
+      $("#locationStatus").textContent = `Live risk zone loaded near your GPS position (${data.temperature.toFixed(1)}°C, ${data.humidity}% humidity). GPS accuracy: about ${accuracy} m.`;
+      resolveLocationName(userCoordinates).then((name) => {
+        if (!name) return;
+        data.location = name;
+        state.location = name;
+        $("#currentLocationLabel").textContent = name;
+        $("#locationStatus").textContent = `Live risk zone loaded near ${name}. GPS accuracy: about ${accuracy} m.`;
+      });
+      if (!$("#chatWindow").children.length) appendChatMessage(`Your exact area is loaded. Current thermal stress is ${RISK_META[data.risk].label} (${data.riskScore}/100).`, "bot");
+    }catch(error){
+      $("#locationStatus").textContent = "Live weather could not be loaded. Check that the backend is running.";
+    }
+  }, (error) => {
+    const message = error.code === 1 ? "Location permission denied. Allow location access and click My Location again." : "GPS location unavailable. Check device location services and try again.";
+    $("#locationStatus").textContent = message;
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+}
+
+async function resolveLocationName(coordinates){
+  try{
+    const params = new URLSearchParams({
+      lat: coordinates.lat,
+      lon: coordinates.lon,
+      format: "jsonv2",
+      zoom: "18",
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const address = (await response.json()).address || {};
+    return address.neighbourhood || address.suburb || address.village || address.town || address.city || address.municipality || address.county || null;
+  }catch(error){
+    return null;
+  }
 }
 
 /* ---------- Safety recommendations ---------- */
@@ -381,8 +490,7 @@ function renderRecommendations(profile){
 /* ---------- Location dropdown ---------- */
 function renderLocationDropdown(){
   const dropdown = $("#locationDropdown");
-  dropdown.innerHTML = Object.keys(DEMO_LOCATIONS).map(name =>
-    `<li role="option"><button data-loc="${name}">${name}</button></li>`).join("");
+  dropdown.innerHTML = `<li role="option"><button data-loc="__current__">Use my current location</button></li>`;
 }
 
 /* ---------- AI Assistant (rule-based, grounded in current risk data — never invents a score) ---------- */
@@ -439,26 +547,8 @@ async function handleUserQuestion(question, currentData){
 let currentRiskData = null;
 
 async function selectLocation(name){
-  state.location = name;
-  $("#currentLocationLabel").textContent = DEMO_LOCATIONS[name] ? `${name}, Punjab` : name;
   $("#locationDropdown").hidden = true;
-
-  setLoadingState(true);
-  const data = await fetchRisk(name);
-  currentRiskData = data;
-  setLoadingState(false);
-
-  renderRisk(data);
-  renderPredictionChart(data);
-  renderClock();
-
-  if (map){
-    Object.values(mapMarkers).forEach(m => map.removeLayer(m));
-    mapMarkers = {};
-    renderMapMarkers();
-    const d = DEMO_LOCATIONS[name];
-    if (d) map.flyTo([d.lat, d.lng], 8, { duration: 0.8 });
-  }
+  if (name === "__current__") locateUser();
 }
 
 function setLoadingState(isLoading){
@@ -509,8 +599,11 @@ function wireEvents(){
 
   // Notifications (simple toggle demo)
   $("#notifBtn").addEventListener("click", () => {
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
     document.getElementById("alerts").scrollIntoView({ behavior: "smooth" });
   });
+
+  $("#myLocationBtn").addEventListener("click", locateUser);
 
   // Hero CTA
   $("#checkRiskBtn").addEventListener("click", () => {
@@ -595,11 +688,7 @@ async function init(){
   wireEvents();
   initMap();
 
-  currentRiskData = await fetchRisk(state.location);
-  renderRisk(currentRiskData);
-  renderPredictionChart(currentRiskData);
-
-  appendChatMessage(`Hi, I'm the HeatSafe AI Assistant. Current thermal stress in ${currentRiskData.location} is ${RISK_META[currentRiskData.risk].label} (${currentRiskData.riskScore}/100). Ask me anything about today's heat conditions.`, "bot");
+  locateUser();
 
   setInterval(renderClock, 60000);
 }

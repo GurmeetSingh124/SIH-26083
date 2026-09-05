@@ -10,6 +10,9 @@ app = FastAPI(
     title="SIH26083 Heatwave & Thermal Stress Backend",
     description="FastAPI backend for weather monitoring, heat risk, prediction and alerts.",
     version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(

@@ -1,0 +1,23 @@
+fastapi
+uvicorn[standard]
+pydantic
+email-validator
+python-dotenv
+
+# MongoDB
+motor
+pymongo
+
+# Auth
+bcrypt
+python-jose[cryptography]
+python-multipart
+
+# ML model
+scikit-learn==1.7.2
+joblib
+numpy
+pandas
+
+# Live weather calls
+httpx
